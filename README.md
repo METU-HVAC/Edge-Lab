@@ -21,10 +21,11 @@ A lightweight Python edge-system wrapper that receives configuration over HTTPS 
 ---
 
 ## Project Structure
-## Requirements
-
-- **Python ≥ 3.8**  
-- **fastapi**  
-- **uvicorn[standard]**  
-- **pandas**
+**Requirements**
+1. **Create a virtual environment**  
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install --upgrade pip
+   pip install -r requirements.txt`````
 
