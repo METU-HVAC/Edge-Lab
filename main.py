@@ -65,8 +65,10 @@ async def background_loop():
                 # Remove NaN values from the dictionary
                 last = {k: v for k, v in last.items() if pd.notna(v)}
                 
-                print("🔄 Background loop running with config:", last)
-                handle_controller(**last)
+                print("Background loop running with config:", last)
+                file_name = last['file']
+                mode_var  = last['mode']
+                handle_controller(file_name, mode_var)
                 
             except pd.errors.EmptyDataError:
                 print("⚠️ CSV file is empty or has no data, waiting...")
