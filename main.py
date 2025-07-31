@@ -75,7 +75,7 @@ async def background_loop():
                 await asyncio.sleep(1)
                 continue
             except Exception as e:
-                print(f" -----Error reading CSV: {e}----)
+                print(f" -----Error reading CSV: {e}----")
                 await asyncio.sleep(1)
                 continue
                       
