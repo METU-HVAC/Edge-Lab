@@ -69,7 +69,7 @@ async def background_loop():
 
                 print("Background loop running with config:", last)
                 file_name = last['file']
-                mode_var = last['mode']
+                mode_var = last['fan_mode']
                 handle_controller(file_name, mode_var)
 
             except pd.errors.EmptyDataError:
@@ -95,7 +95,7 @@ async def on_startup():
 async def receive_json(data: dict):
 
     try:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         write_new_entry(timestamp, data, csv_file)
         print("!Saved payload to CSV:", data)
         
