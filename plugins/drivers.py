@@ -46,6 +46,10 @@ def set_fan_mode(mode):
         GPIO.output(RELAY4_PIN, GPIO.HIGH)
 
 def get_temps():
+    # DS18B20 Sensörler
+    sensor_outdoor = W1ThermSensor(sensor_id="03189779d735")
+    sensor_indoor = W1ThermSensor(sensor_id="03219779e135")
+
     tin = sensor_indoor.get_temperature()
     tout = sensor_outdoor.get_temperature() + 2            
     print(f"from drivers.py İÇ VE DIŞ sıcaklık:",tin, tout)
