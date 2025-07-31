@@ -68,9 +68,10 @@ async def background_loop():
                 last = {k: v for k, v in last.items() if pd.notna(v)}
 
                 print("Background loop running with config:", last)
+                timestamps = last['timestamp']
                 file_name = last['file']
                 mode_var = last['fan_mode']
-                handle_controller(file_name, mode_var)
+                handle_controller(timestamps,file_name, mode_var)
 
             except pd.errors.EmptyDataError:
                 print("⚠️ CSV file is empty or has no data, waiting...")
