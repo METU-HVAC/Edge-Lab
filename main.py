@@ -42,50 +42,52 @@ async def background_loop():
                 print("⚠️ CSV not found, waiting...")
                 await asyncio.sleep(1)
                 continue
-            
+
             try:
                 df = pd.read_csv(csv_file)
                 print(f"CSV loaded. Shape: {df.shape}, Columns: {list(df.columns)}")
-                
+
                 # Check for empty
                 if df.empty or len(df) == 0:
                     print("⚠️ CSV is empty, waiting...")
                     await asyncio.sleep(1)
                     continue
-                
+
                 # Removing empty rows
                 df = df.dropna(how='all')
-                
+
                 if df.empty:
                     print("⚠️ CSV contains only empty rows, waiting...")
                     await asyncio.sleep(1)
                     continue
-                
+
                 # Get the last row
                 last = df.iloc[-1].to_dict()
-                
+
                 # Remove NaN values from the dictionary
                 last = {k: v for k, v in last.items() if pd.notna(v)}
-                
+
                 print("Background loop running with config:", last)
                 file_name = last['file']
-                mode_var  = last['mode']
+                mode_var = last['mode']
                 handle_controller(file_name, mode_var)
-                
+
             except pd.errors.EmptyDataError:
                 print("⚠️ CSV file is empty or has no data, waiting...")
                 await asyncio.sleep(1)
                 continue
-            except Exception as e:
-                print(f" -----Error reading CSV: {e}----")
-                await asyncio.sleep(1)
-                continue
-                      
-            await asyncio.sleep(5)  
-            
+
+            # Pause before the next iteration
+            await asyncio.sleep(5)
+
     except asyncio.CancelledError:
         print("---- Background loop cancelled ----")
         raise
+
+    except Exception as e:
+        print(f"----- Error reading CSV: {e} ----")
+        await asyncio.sleep(1)
+
 
 
 @app.on_event("startup")
