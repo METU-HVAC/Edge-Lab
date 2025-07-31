@@ -5,9 +5,27 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pathlib import Path
 import uvicorn
+import RPi.GPIO as GPIO
 from datetime import datetime
+
 #wrapper function call
 from controller_wrapper import handle_controller
+
+#Handling GPIOs to prevent switching on multiple relays and damaging fan
+# Röle Pinleri
+RELAY1_PIN = 23  # Fan yön kontrol
+RELAY2_PIN = 24  # Panjur kontrol
+RELAY3_PIN = 25  # Fan Kademe 1 (MOD1)
+RELAY4_PIN = 27  # Fan Kademe 2 (MOD2)
+
+# GPIO Ayarları
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(RELAY1_PIN, GPIO.OUT, initial = GPIO.HIGH)
+GPIO.setup(RELAY2_PIN, GPIO.OUT, initial = GPIO.HIGH)
+GPIO.setup(RELAY3_PIN, GPIO.OUT, initial = GPIO.HIGH)
+GPIO.setup(RELAY4_PIN, GPIO.OUT, initial = GPIO.HIGH)
+
 
 app = FastAPI()
 BASE_DIR = Path(__file__).parent
