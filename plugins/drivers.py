@@ -3,12 +3,7 @@ import RPi.GPIO as GPIO
 from w1thermsensor import W1ThermSensor
 
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(RELAY1_PIN, GPIO.OUT, initial = GPIO.HIGH)
-GPIO.setup(RELAY2_PIN, GPIO.OUT, initial = GPIO.HIGH)
-GPIO.setup(RELAY3_PIN, GPIO.OUT, initial = GPIO.HIGH)
-GPIO.setup(RELAY4_PIN, GPIO.OUT, initial = GPIO.HIGH)
+
 
 # Fan kontrol fonksiyonu
 def set_fan_mode(mode):
@@ -16,6 +11,13 @@ def set_fan_mode(mode):
     RELAY2_PIN = 24  # Panjur kontrol
     RELAY3_PIN = 25  # Fan Kademe 1 (MOD1)
     RELAY4_PIN = 27  # Fan Kademe 2 (MOD2)
+
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
+    GPIO.setup(RELAY1_PIN, GPIO.OUT, initial = GPIO.HIGH)
+    GPIO.setup(RELAY2_PIN, GPIO.OUT, initial = GPIO.HIGH)
+    GPIO.setup(RELAY3_PIN, GPIO.OUT, initial = GPIO.HIGH)
+    GPIO.setup(RELAY4_PIN, GPIO.OUT, initial = GPIO.HIGH)
 
     current_fan_mode = mode
     print(f"Yeni fan modu: {mode}")
