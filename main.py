@@ -1,11 +1,11 @@
 
-
 import asyncio
 import os
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pathlib import Path
 import uvicorn
+from datetime import datetime
 #wrapper function call
 from controller_wrapper import handle_controller
 
@@ -13,29 +13,74 @@ app = FastAPI()
 BASE_DIR = Path(__file__).parent
 csv_file = BASE_DIR / "DB" / "Configs.CSV"
 
+def write_new_entry(new_data_dict, csv_file):
+    try:
+        new_row = pd.DataFrame([new_data_dict])
+        
+        if os.path.exists(csv_file):
+            existing_df = pd.read_csv(csv_file)
+            updated_df = pd.concat([existing_df, new_row], ignore_index=True)
+        else:
+            print("new entry function could not find csv")
+        
+        # Write back
+        updated_df.to_csv(csv_file, index=False)
+        print(f"Entry saved to {csv_file}")
+        
+    except Exception as e:
+        print(f" Error writing to CSV: {e}")
 
 async def background_loop():
-# I have setup this code routine so we dont need to restart pi whenever we update params
+    """
+    Background loop that monitors CSV file and processes the latest configuration
+    """
     try:
         while True:
             if not os.path.exists(csv_file):
-                print("⚠️CSV not found, waiting...")
+                print("⚠️ CSV not found, waiting...")
                 await asyncio.sleep(1)
                 continue
-
-            df = pd.read_csv(csv_file)
-            if df.empty:
-                print("⚠️CSV is empty, waiting...")
+            
+            try:
+                df = pd.read_csv(csv_file)
+                print(f"CSV loaded. Shape: {df.shape}, Columns: {list(df.columns)}")
+                
+                # Check for empty
+                if df.empty or len(df) == 0:
+                    print("⚠️ CSV is empty, waiting...")
+                    await asyncio.sleep(1)
+                    continue
+                
+                # Removing empty rows
+                df = df.dropna(how='all')
+                
+                if df.empty:
+                    print("⚠️ CSV contains only empty rows, waiting...")
+                    await asyncio.sleep(1)
+                    continue
+                
+                # Get the last row
+                last = df.iloc[-1].to_dict()
+                
+                # Remove NaN values from the dictionary
+                last = {k: v for k, v in last.items() if pd.notna(v)}
+                
+                print("🔄 Background loop running with config:", last)
+                handle_controller(**last)
+                
+            except pd.errors.EmptyDataError:
+                print("⚠️ CSV file is empty or has no data, waiting...")
                 await asyncio.sleep(1)
                 continue
-
-            last = df.iloc[-1].to_dict()
-            print("Background loop running with config:", last)
-            handle_controller(**last)
-            # --- I will put proper python controller wrapper here ---
-            await asyncio.sleep(5)  # temporary for now 
+            except Exception as e:
+                print(f" -----Error reading CSV: {e}----)
+                await asyncio.sleep(1)
+                continue
+                      
+            await asyncio.sleep(5)  
+            
     except asyncio.CancelledError:
-        print("----Background loop cancelled----")
+        print("---- Background loop cancelled ----")
         raise
 
 
@@ -45,27 +90,31 @@ async def on_startup():
     print("Background task started at startup")
 
 
+
 @app.post("/receive-json")
 async def receive_json(data: dict):
-    
-    # handling local db save below
-    header = not os.path.exists(csv_file)
-    df = pd.DataFrame([data])
-    df.to_csv(csv_file, mode="a", header=header, index=False)
-    print("Saved payload to CSV:", data)
 
-    # cancel current wrapper function execution and restart with new params
-    task = app.state.bg_task
-    if task:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
-    app.state.bg_task = asyncio.create_task(background_loop())
-    print("!Background task restarted with new config")
-
-    return {"status": "saved and background restarted"}
+    try:
+        data['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        write_new_entry_to_csv(data, csv_file)
+        print("!Saved payload to CSV:", data)
+        
+        task = getattr(app.state, 'bg_task', None)
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        
+        app.state.bg_task = asyncio.create_task(background_loop())
+        print("Background task restarted with new config")
+        
+        return {"status": "saved and background restarted"}
+        
+    except Exception as e:
+        print(f"----Error in receive_json_v2: {e}----")
+        return {"status": "error", "message": str(e)}
 
 
 if __name__ == "__main__":
