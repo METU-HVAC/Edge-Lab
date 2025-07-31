@@ -113,7 +113,7 @@ async def receive_json(data: dict):
         return {"status": "saved and background restarted"}
         
     except Exception as e:
-        print(f"----Error in receive_json_v2: {e}----")
+        print(f"----Error in receive_json: {e}----")
         return {"status": "error", "message": str(e)}
 
 
