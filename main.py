@@ -6,6 +6,8 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pathlib import Path
 import uvicorn
+#wrapper function call
+from controller_wrapper import handle_controller
 
 app = FastAPI()
 BASE_DIR = Path(__file__).parent
@@ -29,7 +31,8 @@ async def background_loop():
 
             last = df.iloc[-1].to_dict()
             print("Background loop running with config:", last)
-            # --- I will put python controller wrapper here ---
+            handle_controller(**last)
+            # --- I will put proper python controller wrapper here ---
             await asyncio.sleep(5)  # temporary for now 
     except asyncio.CancelledError:
         print("----Background loop cancelled----")
@@ -44,17 +47,14 @@ async def on_startup():
 
 @app.post("/receive-json")
 async def receive_json(data: dict):
-    """
-    1) Append incoming JSON to CSV
-    2) Cancel & restart the background_loop so it picks up new params
-    """
+    
     # handling local db save below
     header = not os.path.exists(csv_file)
     df = pd.DataFrame([data])
     df.to_csv(csv_file, mode="a", header=header, index=False)
     print("Saved payload to CSV:", data)
 
-    # cancel current wrapper function and restarting with new params
+    # cancel current wrapper function execution and restart with new params
     task = app.state.bg_task
     if task:
         task.cancel()
@@ -69,4 +69,4 @@ async def receive_json(data: dict):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
