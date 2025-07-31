@@ -13,22 +13,24 @@ app = FastAPI()
 BASE_DIR = Path(__file__).parent
 csv_file = BASE_DIR / "DB" / "Configs.CSV"
 
-def write_new_entry(new_data_dict, csv_file):
+
+def write_new_entry(timestamp, new_data_dict, csv_file):
     try:
+        new_data_dict['timestamp'] = timestamp
         new_row = pd.DataFrame([new_data_dict])
-        
+
         if os.path.exists(csv_file):
             existing_df = pd.read_csv(csv_file)
             updated_df = pd.concat([existing_df, new_row], ignore_index=True)
         else:
-            print("new entry function could not find csv")
-        
-        # Write back
+            updated_df = new_row
+
+        #Write back 
         updated_df.to_csv(csv_file, index=False)
         print(f"Entry saved to {csv_file}")
-        
+
     except Exception as e:
-        print(f" Error writing to CSV: {e}")
+        print(f"Error writing to CSV: {e}")
 
 async def background_loop():
     """
@@ -97,8 +99,8 @@ async def on_startup():
 async def receive_json(data: dict):
 
     try:
-        data['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        write_new_entry_to_csv(data, csv_file)
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        write_new_entry(timestamp, data, csv_file)
         print("!Saved payload to CSV:", data)
         
         task = getattr(app.state, 'bg_task', None)
