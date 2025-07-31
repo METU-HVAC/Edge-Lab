@@ -84,12 +84,6 @@ async def background_loop():
         print("---- Background loop cancelled ----")
         raise
 
-    except Exception as e:
-        print(f"----- Error reading CSV: {e} ----")
-        await asyncio.sleep(1)
-
-
-
 @app.on_event("startup")
 async def on_startup():
     app.state.bg_task = asyncio.create_task(background_loop())
