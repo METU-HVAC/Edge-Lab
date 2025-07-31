@@ -51,6 +51,7 @@ def get_temps():
     sensor_indoor = W1ThermSensor(sensor_id="03219779e135")
 
     tin = sensor_indoor.get_temperature()
-    tout = sensor_outdoor.get_temperature() + 2            
+    tout = sensor_outdoor.get_temperature() + 2  
+    #sensor defined above now          
     print(f"from drivers.py İÇ VE DIŞ sıcaklık:",tin, tout)
     return tin, tout
