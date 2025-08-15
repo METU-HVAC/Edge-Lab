@@ -1,15 +1,18 @@
 
-import asyncio
-import os
-import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pathlib import Path
 import uvicorn
 import RPi.GPIO as GPIO
 from datetime import datetime
+import asyncio, os, json, pandas as pd, zmq, zmq.asyncio
 
-#wrapper function call
+#custom fucntion imports from my onw files
 from controller_wrapper import handle_controller
+from mqtt_src.mqtt_handler import make_mqtt_client, start_mqtt, stop_mqtt, TOPIC_CFG
+
+# --- ZMQ settings ---
+ZMQ_ENDPOINT = "tcp://127.0.0.1:5555"  # change if needed
+ZMQ_TOPIC    = "edge/out"               # the topic you want to publish on
 
 #Handling GPIOs to prevent switching on multiple relays and damaging fan
 # Röle Pinleri
@@ -30,6 +33,38 @@ GPIO.setup(RELAY4_PIN, GPIO.OUT, initial = GPIO.HIGH)
 app = FastAPI()
 BASE_DIR = Path(__file__).parent
 csv_file = BASE_DIR / "DB" / "Configs.CSV"
+#-------------ASYNC hanndeler for my mqtt-------------
+async def on_mqtt_message(topic: str, text: str):
+    print(f"[MQTT] {topic}: {text}")
+
+    if topic == "A403-RM":
+        try:
+            mqtt_data = json.loads(text)
+        except json.JSONDecodeError:
+            print("*********Invalid JSON on MQTT; ignoring*********"); return
+        if not isinstance(mqtt_data, dict):
+            print("*********8MQTT payload not an object; ignoring"********); return
+
+        try:
+            extra = get_runtime_json() #will declare later
+            if not isinstance(extra, dict):
+                print("********get_runtime_json() did not return dict; ignoring*******"); return
+        except Exception as e:
+            print(f"*********get_runtime_json() failed: {e}"***********); return
+
+        merged = merge_dicts(mqtt_data, extra, prefer="mqtt")
+        merged.setdefault("merged_at", datetime.now().isoformat(timespec="seconds"))
+        merged.setdefault("source", "mqtt+runtime")
+
+        # 4) Publish via ZeroMQ PUB )
+        try:
+            msg = json.dumps(merged, ensure_ascii=False).encode("utf-8")
+            # Send as multipart: topic frame then payload frame
+            await app.state.zmq_pub.send_multipart([ZMQ_TOPIC.encode(), msg])
+            print(f"[ZMQ PUB] topic={ZMQ_TOPIC} bytes={len(msg)}")
+        except Exception as e:
+            print(f"********ZMQ publish failed: {e}*********")
+        return
 
 
 def write_new_entry(timestamp, new_data_dict, csv_file):
@@ -71,7 +106,7 @@ async def background_loop():
                     await asyncio.sleep(1)
                     continue
 
-                # Removing empty rows
+                
                 df = df.dropna(how='all')
 
                 if df.empty:
@@ -105,8 +140,26 @@ async def background_loop():
 
 @app.on_event("startup")
 async def on_startup():
+    #----this for config handling
     app.state.bg_task = asyncio.create_task(background_loop())
-    print("Background task started at startup")
+    print("Background config task started at startup")
+
+    # Make ZMQ PUB socket (async)
+    app.state.zmq_ctx = zmq.asyncio.Context.instance()
+    app.state.zmq_pub = app.state.zmq_ctx.socket(zmq.PUB)
+    # For PUB, a tiny sleep after bind/connect can help subscribers attach before first send
+    app.state.zmq_pub.bind(ZMQ_ENDPOINT)   # or .connect(...) depending on your topology
+    print(f"ZMQ PUB bound at {ZMQ_ENDPOINT}")
+
+    # Expose async hook for mqtt_task.py
+    app.state.on_mqtt_message = on_mqtt_message
+
+    # Create and start the Paho client (from your mqtt_task.py)
+    loop = asyncio.get_running_loop()
+    from mqtt_src.mqtt_handler import make_mqtt_client, start_mqtt
+    client = make_mqtt_client(app, loop)
+    app.state.mqtt_client = client
+    start_mqtt(client)
 
 
 
@@ -135,6 +188,30 @@ async def receive_json(data: dict):
         print(f"----Error in receive_json: {e}----")
         return {"status": "error", "message": str(e)}
 
+@app.on_event("shutdown")
+async def on_shutdown():
+    # Stop MQTT thread
+    from mqtt_src.mqtt_handler import stop_mqtt
+    client = getattr(app.state, "mqtt_client", None)
+    if client: stop_mqtt(client)
 
+    # Close ZMQ
+    pub = getattr(app.state, "zmq_pub", None)
+    if pub:
+        try: pub.close(0)
+        except Exception: pass
+    ctx = getattr(app.state, "zmq_ctx", None)
+    if ctx:
+        try: ctx.term()
+        except Exception: pass
+
+    # Stop background task if you want
+    t = getattr(app.state, "bg_task", None)
+    if t:
+        t.cancel()
+        try: await t
+        except asyncio.CancelledError: pass
+
+    print("Shutdown complete.")
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

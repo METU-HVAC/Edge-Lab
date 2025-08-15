@@ -3,4 +3,5 @@ uvicorn[standard]
 pandas
 RPi.GPIO
 w1thermsensor
-
+pyzmq
+paho-mqtt
